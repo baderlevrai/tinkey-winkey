@@ -2,7 +2,7 @@ NAME = tinky.exe
 OBJS = main.obj
 
 CC = cl
-CFLAGS = /Wall /WX
+#CFLAGS = /Wall /WX
 LDFLAGS = /link user32.lib
 
 all: $(NAME)
