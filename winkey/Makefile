@@ -1,28 +1,26 @@
 NAME    = winkey.exe
 SRCS    = main.c
-OBJS    = $(SRCS:.c=.o)
+OBJS    = $(SRCS:.c=.obj)
 
-CC      = gcc
-CFLAGS  = -Wall -Wextra
-LDLIBS  = -luser32
+CC      = cl
+CFLAGS  = /Wall /WX /wd5045 /nologo
+LDLIBS  = user32.lib
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(NAME) $(LDLIBS)
+	$(CC) $(CFLAGS) $(OBJS) /Fe$(NAME) /link $(LDLIBS)
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+.c.obj:
+	$(CC) $(CFLAGS) /c $< /Fo$@
 
 clean:
-	del /q $(OBJS)
+	del /q $(OBJS) 2>nul
 
 fclean: clean
-	del /q $(NAME)
+	del /q $(NAME) 2>nul
 
 re: fclean all
 
 run: all
 	$(NAME)
-
-.PHONY: all clean fclean re run

