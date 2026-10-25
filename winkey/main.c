@@ -1,9 +1,11 @@
-#define WIN32_LEAN_AND_MEAN
-#include <stdio.h>
-#include <windows.h>
-#include <winsvc.h>
-#include <psapi.h>
-#include <time.h>
+#include "winkey.h"
+
+// #define WIN32_LEAN_AND_MEAN
+// #include <stdio.h>
+// #include <windows.h>
+// #include <winsvc.h>
+// #include <psapi.h>
+// #include <time.h>
 
 // un jour je ferais le .h insha'Allah
 
