@@ -8,6 +8,8 @@
 #include <psapi.h>
 #include <time.h>
 
+#define WINKEY "winkey.log"
+
 void                AffProcessName(DWORD processID, const char *path);
 
 int                 forground_process(void);

