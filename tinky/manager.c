@@ -1,5 +1,9 @@
 #include "tinky.h"
 
+void    print_err(char *str) {
+    fprintf(stderr, "Fatal Error: %s: %lu", str, GetLastError());
+}
+
 int sc_install(void) {
     SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
     if (!scm)
@@ -72,31 +76,49 @@ int sc_stop(void) {
 int sc_delete(void) {
     SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
     if (!scm)
-        return (fprintf(stderr, "fatal error"), 1);
+        return (print_err("OpenSCManager"), 1);
     SC_HANDLE svc = OpenService(scm, SC_NAME, DELETE | SERVICE_STOP | SERVICE_QUERY_STATUS);
     if (!svc)
-        return (CloseServiceHandle(scm), fprintf(stderr, "fatal error"), 1);
+        return (CloseServiceHandle(scm), print_err("OpenService"), 1);
 
     //stopping
-    SERVICE_STATUS status;
-    if (!ControlService(svc, SERVICE_CONTROL_STOP, &status)) {
+    SERVICE_STATUS status = { 0 };
+    if (!QueryServiceStatus(svc, &status)) {
         CloseServiceHandle(scm);
         CloseServiceHandle(svc);
-        fprintf(stderr, "fatal error");
+        print_err("QueryServiceStatus");
         return (1);
     }
+    if (status.dwCurrentState != SERVICE_STOPPED) {
+        if (!ControlService(svc, SERVICE_CONTROL_STOP, &status)) {
+            CloseServiceHandle(scm);
+            CloseServiceHandle(svc);
+            print_err("ControlService");
+            return (1);
+        }
 
-    while (status.dwCurrentState != SERVICE_STOPPED) {
-        Sleep(1000);
-        if (!QueryServiceStatus(svc, &status))
-            break;
+        int timeout = 0;
+        while (status.dwCurrentState != SERVICE_STOPPED && timeout != 50) {
+            Sleep(1000);
+            timeout++;
+            if (!QueryServiceStatus(svc, &status))
+                break;
+        }
+        if (timeout >= 50) {
+            CloseServiceHandle(scm);
+            CloseServiceHandle(svc);
+            fprintf(stderr, "Fatal error: Timeout");
+        }
+        printf("Serivce stopped =(\n");
     }
-    printf("Serivce stopped =(\n");
 
     if (!DeleteService(svc)) {
         CloseServiceHandle(scm);
         CloseServiceHandle(svc);
-        fprintf(stderr, "fatal error");
+        if (GetLastError() == ERROR_SERVICE_MARKED_FOR_DELETE)
+            printf("Service already deleted ='(");
+        else
+            print_err("DeleteService");
         return (1);
     }
     printf("Service successfuly deleted ='(\n");

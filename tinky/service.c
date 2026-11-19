@@ -47,6 +47,7 @@ void    error_sc(int code) {
 
 void WINAPI ServiceMain(DWORD argc, LPTSTR *argv) {
     (void)argc;
+    (void)argv;
     g_statusHandle = RegisterServiceCtrlHandler(TEXT(SC_NAME), ServiceCtrlHandler);
     g_status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
     g_status.dwCurrentState = SERVICE_START_PENDING;
@@ -80,7 +81,8 @@ void WINAPI ServiceMain(DWORD argc, LPTSTR *argv) {
     si.cb = sizeof(si);
 
     // ! chemin de winky.exe au lieu de argv[0]
-    if (!CreateProcessAsUser(hduptoken, NULL, ".\\winkey.exe", NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, argv[0], &si, &pi)) {
+    char exec_path[] = WINKY_EXEC_PATH; 
+    if (!CreateProcessAsUser(hduptoken, NULL, exec_path, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, WINKY_PATH, &si, &pi)) {
         CloseHandle(hsys);
         CloseHandle(htoken);
         CloseHandle(hduptoken);
