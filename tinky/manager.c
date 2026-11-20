@@ -7,7 +7,7 @@ void    print_err(char *str) {
 int sc_install(void) {
     SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
     if (!scm)
-        return (fprintf(stderr, "fatal error"), 1);
+        return (print_err("OpenSCManager"), 1);
     char path[MAX_PATH] = { 0 };
     GetModuleFileName(NULL, path, MAX_PATH);
     SC_HANDLE svc = CreateService(
@@ -23,7 +23,7 @@ int sc_install(void) {
     );
     CloseServiceHandle(scm);
     if (!svc)
-        return (fprintf(stderr, "fatal error"), 1);
+        return (print_err("CreateService"), 1);
     CloseServiceHandle(svc);
     printf("Service Installed successfully ! =)\n");
     return (0);
@@ -32,14 +32,14 @@ int sc_install(void) {
 int sc_start(void) {
     SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
     if (!scm)
-        return (fprintf(stderr, "fatal error"), 1);
+        return (print_err("OpenSCManager"), 1);
     SC_HANDLE svc = OpenService(scm, SC_NAME, SERVICE_START | SERVICE_QUERY_STATUS);
     if (!svc)
-        return (CloseServiceHandle(scm), fprintf(stderr, "fatal error"), 1);
+        return (CloseServiceHandle(scm), print_err("OpenService"), 1);
     if (!StartService(svc, 0, NULL)) {
         CloseServiceHandle(scm);
         CloseServiceHandle(svc);
-        fprintf(stderr, "fatal error");
+        print_err("StartService");
         return (1);
     }
     CloseServiceHandle(scm);
@@ -50,15 +50,15 @@ int sc_start(void) {
 int sc_stop(void) {
     SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
     if (!scm)
-        return (fprintf(stderr, "fatal error"), 1);
+        return (print_err("OpenSCManager"), 1);
     SC_HANDLE svc = OpenService(scm, SC_NAME, SERVICE_STOP | SERVICE_QUERY_STATUS);
     if (!svc)
-        return (CloseServiceHandle(scm), fprintf(stderr, "fatal error"), 1);
+        return (CloseServiceHandle(scm), print_err("OpenService"), 1);
     SERVICE_STATUS status;
     if (!ControlService(svc, SERVICE_CONTROL_STOP, &status)) {
         CloseServiceHandle(scm);
         CloseServiceHandle(svc);
-        fprintf(stderr, "fatal error");
+        print_err("ControlService");
         return (1);
     }
 
